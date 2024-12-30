@@ -1,4 +1,5 @@
 import os
+import shutil
 import ast
 import tkinter as tk
 from queue import Queue
@@ -13,9 +14,9 @@ green = '#66CD00'
 pink = '#EE1289'
 
 root = tk.Tk()
-root.title("Recordings Helper")
-root.geometry("675x450")
+root.title("Directory Observer")
 root.configure(bg=lableBlue)
+root.geometry("675x700")
 entry = tk.Entry(root)
 
 
@@ -26,20 +27,24 @@ class RecordingHandler(FileSystemEventHandler):
         self.queue = queue
 
     def on_created(self, event):
-        if not event.is_directory and event.src_path.endswith(".mkv"):
+        if not event.is_directory:
             self.queue.put(event.src_path)
 
 class App:
     def __init__(self):
         self.path = self.getLst('path.txt')[0]
+        self.path2 = self.getLst('path.txt')[1]
         self.queue = Queue()
         self.setup_ui()
         #print(self.path)
 
     def setup_ui(self):
         forget_all(root)
-        makeLable('\n\n\n\nObserving ".mkv" files in\n\n{}\n'.format(self.path), 18)
-        makeButton('New Path', self.changePath)
+        makeLable('\n\n\n\nObserving files in\n\n{}\n'.format(self.path), 18)
+        makeLable('Destination path set to\n\n{}\n'.format(self.path2), 18)
+        makeButton('Observe New', self.changePath)
+        makeButton('New Destination', self.changePath2)
+
         root.after(100, self.process_queue)
 
     def process_queue(self):
@@ -55,10 +60,11 @@ class App:
         makeButton('Delete', lambda: self.delete(file_path))
         makeButton('Keep', lambda: self.keep(file_path))
         makeButton('Rename', lambda: self.rename(file_path))
-        #root.lift()  # Bring the window to the top
-        #root.attributes("-topmost", True)
-        #root.attributes("-topmost", False)
-        #root.focus_force()
+        makeButton('Move to Destination', lambda: self.move(file_path))
+        root.lift()  # Bring the window to the top
+        root.attributes("-topmost", True)
+        root.attributes("-topmost", False)
+        root.focus_force()
 
     def rename(self, file_path):
         forget_all(root)
@@ -68,10 +74,27 @@ class App:
         lst = file_path.split('\\')
         def rename_path():
             name = r"{}".format(entry.get())
-            lst[-1] = lst[-1].replace('.mkv', ' ' + name + '.mkv')
+            old = lst[-1].split('.')[0]
+            ext = lst[-1].split('.')[1]
+            lst[-1] = lst[-1].replace(old, ' ' + name + '.' + ext)
             os.rename(file_path, ('\\').join(lst))
             self.setup_ui()
-        makeButton('Submit', rename_path)
+        def to_dest():
+            name = r"{}".format(entry.get())
+            old = lst[-1].split('.')[0]
+            ext = lst[-1].split('.')[1]
+            lst[-1] = lst[-1].replace(old, ' ' + name + '.' + ext)
+            new_file = ('\\').join(lst)
+            os.rename(file_path, new_file)
+            shutil.move(new_file, self.path2)
+            self.setup_ui()
+        makeButton('Save', rename_path)
+        makeButton('Save to Destination', to_dest)
+
+    def move(self, file_path):
+        forget_all(root)
+        shutil.move(file_path, self.path2)
+        self.setup_ui()
 
     def delete(self, file_path):
         forget_all(root)
@@ -92,11 +115,36 @@ class App:
         
         def get_path():
             path = r"{}".format(entry.get())
-            lst.append(path)
+            path = path.replace('"', '')
+            lst = [path, self.path2]
             self.updateFile(lst, 'path.txt')
-            self.setup_ui()
+            self.path = self.getLst('path.txt')[0]
+            #self.setup_ui()
+            self.sorry()
         
         makeButton('Submit', get_path)
+
+    def changePath2(self):
+        forget_all(root)
+        makeLable(f'\n\n\n\nEnter New Destination Path\n', 18)
+        
+        entry = tk.Entry(root)
+        entry.pack()
+        
+        def get_path():
+            path = r"{}".format(entry.get())
+            path = path.replace('"', '')
+            lst = [self.path, path]
+            self.updateFile(lst, 'path.txt')
+            self.path2 = self.getLst('path.txt')[1]
+            #self.setup_ui()
+            self.sorry()
+        
+        makeButton('Submit', get_path)
+
+    def sorry(self):
+        forget_all(root)
+        makeLable(f'\n\n\n\nChanges have been made.\nplease close and restart app\n working on solution..', 18)
 
     def updateFile(self, Lst, file):
         with open(file, "w") as f:
@@ -123,7 +171,7 @@ def makeButton(name, func):
         text=name,
         command=func,
         fg='#66CD00', bg=lableBlue,
-        height=3, width=8,
+        height=3, width=16,
         font=("Arial", 12, "bold")
     ).pack()
 
